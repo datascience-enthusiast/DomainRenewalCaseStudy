@@ -1,6 +1,6 @@
 # DomainRenewalCaseStudy
 
-1) Built a model to predict Domain Renewal with almost 94% Testing Accuracy
+1) Built a model to predict Domain Renewal with almost 93% Testing Accuracy with XGBOOST
 2) Explored through Exploratory Data Analysis and understood the relationship of features.
 3) Built Wordcloud to better understand what are the TOP MOST Domain Name words.
 4) Used statistical analysis (ANOVA, correlation-coefficients) and graphs.
