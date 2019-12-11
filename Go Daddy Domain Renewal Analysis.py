@@ -603,65 +603,65 @@ for i in numerical_columns:
 # In[47]:
 
 
-# load the GloVe vectors in a dictionary:
-from tqdm import tqdm
-embeddings_index = {}
-f = open('glove.840B.300d.txt', encoding='utf8')
-for line in tqdm(f):
-    values = line.split(' ')
-    word = values[0]
-    coefs = np.asarray(values[1:], dtype='float32')
-    embeddings_index[word] = coefs
-f.close()
+# # load the GloVe vectors in a dictionary:
+# from tqdm import tqdm
+# embeddings_index = {}
+# f = open('glove.840B.300d.txt', encoding='utf8')
+# for line in tqdm(f):
+#     values = line.split(' ')
+#     word = values[0]
+#     coefs = np.asarray(values[1:], dtype='float32')
+#     embeddings_index[word] = coefs
+# f.close()
 
-print('Found %s word vectors.' % len(embeddings_index))
+# print('Found %s word vectors.' % len(embeddings_index))
 
 
 # In[48]:
 
 
-# this function creates a normalized vector for the whole sentence
-def word2vec(s):
-    words = str(s).lower()
-    words = [w for w in words if w.isalpha()]
-    words = [w for w in words if w not in string.punctuation]
-    M = []
-    for w in words:
-        try:
-            M.append(embeddings_index[w])
-        except:
-            continue
-    M = np.array(M)
-    v = M.sum(axis=0)
-    if type(v) != np.ndarray:
-        return np.zeros(300)
-    return v / np.sqrt((v ** 2).sum())
+# # this function creates a normalized vector for the whole sentence
+# def word2vec(s):
+#     words = str(s).lower()
+#     words = [w for w in words if w.isalpha()]
+#     words = [w for w in words if w not in string.punctuation]
+#     M = []
+#     for w in words:
+#         try:
+#             M.append(embeddings_index[w])
+#         except:
+#             continue
+#     M = np.array(M)
+#     v = M.sum(axis=0)
+#     if type(v) != np.ndarray:
+#         return np.zeros(300)
+#     return v / np.sqrt((v ** 2).sum())
 
 
 # In[49]:
 
 
-xtrain_glove = [word2vec(x) for x in tqdm(df_train['domain'].values)]
-xtest_glove = [word2vec(x) for x in tqdm(df_test['domain'].values)]
+# xtrain_glove = [word2vec(x) for x in tqdm(df_train['domain'].values)]
+# xtest_glove = [word2vec(x) for x in tqdm(df_test['domain'].values)]
 
 
 # In[50]:
 
 
-xtrain_glove = pd.DataFrame(np.array(xtrain_glove))
-xtest_glove = pd.DataFrame(np.array(xtest_glove))
+# xtrain_glove = pd.DataFrame(np.array(xtrain_glove))
+# xtest_glove = pd.DataFrame(np.array(xtest_glove))
 
-print(xtrain_glove.shape)
+# print(xtrain_glove.shape)
 
 
 # In[51]:
 
 
-xtrain_glove.columns = ['glove_syn_'+str(i) for i in range(300)]
-xtest_glove.columns = ['glove_syn_'+str(i) for i in range(300)]
+# xtrain_glove.columns = ['glove_syn_'+str(i) for i in range(300)]
+# xtest_glove.columns = ['glove_syn_'+str(i) for i in range(300)]
 
-df_train = pd.concat([df_train, xtrain_glove], axis=1)
-df_test = pd.concat([df_test, xtest_glove], axis=1)
+# df_train = pd.concat([df_train, xtrain_glove], axis=1)
+# df_test = pd.concat([df_test, xtest_glove], axis=1)
 
 
 # In[52]:
@@ -717,104 +717,211 @@ df_train.columns
 X_train = df_train.iloc[:, df_train.columns != 'renewal_status'].values
 y_train = df_train['renewal_status'].values
 
-# import the ML algorithm
-from sklearn.linear_model import LogisticRegression
 
-# Instantiate the classifier
-LogReg = LogisticRegression(penalty='l2', C=1.0)
-
-# Train classifier
-LogReg.fit(X_train, y_train)
-
+# # Class Imbalance - OverSampling
 
 # In[59]:
 
 
-# Do Prediction
-y_pred = LogReg.predict(df_test.iloc[:, df_test.columns != 'renewal_status'].values)
+############# Class Imbalance  - OverSampling #####################
+from imblearn.over_sampling import SMOTE
+smt = SMOTE()
+X_train, y_train = smt.fit_sample(X_train, y_train)
 
 
 # In[60]:
+
+
+np.bincount(y_train)
+
+
+# # Random Forest
+
+# In[79]:
+
+
+############################# Random Forest ############################
+
+# import the ML algorithm
+from sklearn.ensemble import RandomForestClassifier
+
+# Instantiate the classifier
+rfModel = RandomForestClassifier(n_estimators=100)
+
+# Train classifier
+rfModel.fit(X_train, y_train)
+
+
+# In[80]:
+
+
+# Do Prediction
+y_pred_rf = rfModel.predict(df_test.iloc[:, df_test.columns != 'renewal_status'].values)
+
+
+# In[81]:
 
 
 ###################################### Evaluation Metrics ###############################################
 y = df_test['renewal_status'].values
 
 print("Confusion Matrix : ",end='\n')
-print(confusion_matrix(y, y_pred))
+print(confusion_matrix(y, y_pred_rf))
    
-print('Accuracy : ', accuracy_score(y, y_pred), end='\n')
+print('Accuracy : ', accuracy_score(y, y_pred_rf), end='\n')
     
 print('Classification Report : ', end='\n')
-print(classification_report(y, y_pred))
+print(classification_report(y, y_pred_rf))
 
 
-# # Building Model with only Important Features
+# # XGBoost
 
-# In[61]:
+# In[ ]:
 
-
-important_features = [
- 'reg_price',
- 'GibberishOrNot',
- 'Domain_num_words_digit',
- 'Domain_num_chars',
- 'Domain_num_punctuations',
- 'renewal_status'
-]
-
-
-# In[62]:
-
-
-df_train_new = df_train.loc[:, important_features]
-df_test_new = df_test.loc[:, important_features]
-
-
-# In[63]:
-
-
-######################## Model Building #####################
-X_train = df_train_new.iloc[:, df_train_new.columns != 'renewal_status'].values
-y_train = df_train_new['renewal_status'].values
 
 # import the ML algorithm
-from sklearn.linear_model import LogisticRegression
+from xgboost import XGBClassifier
 
 # Instantiate the classifier
-LogReg = LogisticRegression(penalty='l2', C=1.0)
+xgbClassifier = XGBClassifier(random_state=1,learning_rate=0.01)
 
 # Train classifier
-LogReg.fit(X_train, y_train)
+xgbClassifier.fit(X_train, y_train)
 
 
-# In[64]:
+# In[73]:
 
 
 # Do Prediction
-y_pred = LogReg.predict(df_test_new.iloc[:, df_test_new.columns != 'renewal_status'].values)
+y_pred_xgb = xgbClassifier.predict(df_test.iloc[:, df_test.columns != 'renewal_status'].values)
 
 
-# In[65]:
+# In[74]:
 
 
 ###################################### Evaluation Metrics ###############################################
-y = df_test_new['renewal_status'].values
+y = df_test['renewal_status'].values
 
 print("Confusion Matrix : ",end='\n')
-print(confusion_matrix(y, y_pred))
-
-print()
+print(confusion_matrix(y, y_pred_xgb))
    
-print('Accuracy : ', accuracy_score(y, y_pred) * 100, end='\n')
-
-print()
-
+print('Accuracy : ', accuracy_score(y, y_pred_xgb), end='\n')
+    
 print('Classification Report : ', end='\n')
-print(classification_report(y, y_pred))
+print(classification_report(y, y_pred_xgb))
+
+################## Best Model ################
 
 
-# # Saving Model 
+# # Neural Networks
+
+# In[83]:
+
+
+from keras.models import Sequential
+from keras.layers import Dense
+
+
+# In[88]:
+
+
+# Create Keras model
+model = Sequential()
+model.add(Dense(100, input_dim=279, activation="relu"))
+model.add(Dense(50, activation='relu'))
+model.add(Dense(1, activation='sigmoid'))
+
+
+# In[89]:
+
+
+model.compile(loss="binary_crossentropy", optimizer='adam', metrics=['accuracy'])
+
+
+# In[92]:
+
+
+model.fit(X_train, y_train,epochs=30, batch_size=10)
+
+
+# In[94]:
+
+
+predictions = model.predict_classes(df_test.iloc[:, df_test.columns != 'renewal_status'].values)
+
+
+# In[95]:
+
+
+###################################### Evaluation Metrics ###############################################
+y = df_test['renewal_status'].values
+
+print("Confusion Matrix : ",end='\n')
+print(confusion_matrix(y, predictions))
+   
+print('Accuracy : ', accuracy_score(y, predictions), end='\n')
+    
+print('Classification Report : ', end='\n')
+print(classification_report(y, predictions))
+
+
+# # Class Imbalance - UnderSampling
+
+# In[96]:
+
+
+####################### Class Imbalance - Undersampling ######################
+X_train = df_train.iloc[:, df_train.columns != 'renewal_status'].values
+y_train = df_train['renewal_status'].values
+
+
+from imblearn.under_sampling import NearMiss
+nr = NearMiss()
+X_train, y_train = nr.fit_sample(X_train, y_train)
+
+
+# In[97]:
+
+
+np.bincount(y_train)
+
+
+# In[98]:
+
+
+# import the ML algorithm
+from xgboost import XGBClassifier
+
+# Instantiate the classifier
+xgbClassifier = XGBClassifier(random_state=1,learning_rate=0.01)
+
+# Train classifier
+xgbClassifier.fit(X_train, y_train)
+
+
+# In[99]:
+
+
+# Do Prediction
+y_pred_xgb = xgbClassifier.predict(df_test.iloc[:, df_test.columns != 'renewal_status'].values)
+
+
+# In[100]:
+
+
+###################################### Evaluation Metrics ###############################################
+y = df_test['renewal_status'].values
+
+print("Confusion Matrix : ",end='\n')
+print(confusion_matrix(y, y_pred_xgb))
+   
+print('Accuracy : ', accuracy_score(y, y_pred_xgb), end='\n')
+    
+print('Classification Report : ', end='\n')
+print(classification_report(y, y_pred_xgb))
+
+
+# # Saving Best Model -  XGBoost with Oversampled Dataset
 
 # In[66]:
 
@@ -829,11 +936,12 @@ pickle.dump(LogReg, open('final_prediction.pickle', 'wb'))
 
 #### Conclsuion : 
 
-#1) Built a model to predict Domain Renewal with almost 94% Testing Accuracy
+#1) Built a model to predict Domain Renewal with almost 93% Testing Accuracy
 #2) Explored through Exploratory Data Analysis and understood the relationship of features.
 #3) Built Wordcloud to better understand what are the TOP MOST Domain Name words.
 #4) Used statistical analysis (ANOVA, correlation-coefficients) and graphs.
-#5) Did alot of Feaure Engineering and built new features to assist the model to better understand the patterns inside the data:
+#5) Used Oversampling and Undersampling Technique for overcoming Class Imbalance Problem
+#6) Did alot of Feaure Engineering and built new features to assist the model to better understand the patterns inside the data:
     #1) Dervied new features Like Year, Month, Season from Variables including Date (creation_date, expiry_date)
     #2) Reshaped the entire dataset from 8 columns to 580 columns with same rows.
     #3) Applied Textual Preprocessing and cleaning techniques to create features from Domain Names.
